@@ -37,10 +37,6 @@
 /*----------------------------------------------------------------------------
   Define clocks
  *----------------------------------------------------------------------------*/
-#define  XTAL            (50000000UL)     /* Oscillator frequency */
-
-#define  SYSTEM_CLOCK    (XTAL / 2U)
-
 
 /*----------------------------------------------------------------------------
   Externals
@@ -48,20 +44,6 @@
 #if defined (__VTOR_PRESENT) && (__VTOR_PRESENT == 1U)
   extern uint32_t __VECTOR_TABLE;
 #endif
-
-/*----------------------------------------------------------------------------
-  System Core Clock Variable
- *----------------------------------------------------------------------------*/
-uint32_t SystemCoreClock = SYSTEM_CLOCK;  /* System Core Clock Frequency */
-
-
-/*----------------------------------------------------------------------------
-  System Core Clock update function
- *----------------------------------------------------------------------------*/
-void SystemCoreClockUpdate (void)
-{
-  SystemCoreClock = SYSTEM_CLOCK;
-}
 
 /*----------------------------------------------------------------------------
   System initialization function
@@ -81,6 +63,4 @@ void SystemInit (void)
 #ifdef UNALIGNED_SUPPORT_DISABLE
   SCB->CCR |= SCB_CCR_UNALIGN_TRP_Msk;
 #endif
-
-  SystemCoreClock = SYSTEM_CLOCK;
 }

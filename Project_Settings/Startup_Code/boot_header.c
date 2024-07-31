@@ -76,6 +76,8 @@ const xrdc_config_t xrdc_config =
   .Header = 0xffffffff
 };
 
+extern uint32_t __HSE_BIN_START;	// Address taken from linker file, , where HSE encrypted bin is included
+
 #if defined (__ghs__)
 #pragma ghs section rodata =".boot_header"
 const boot_header_t  boot_header = {
@@ -92,7 +94,7 @@ const boot_header_t __attribute__((section (".boot_header"))) boot_header = {
   .CM7_0_StartAddress = (const uint32_t*)&CM7_START_ADDRESS,
   .XRDCConfig_StartAddress  = (const uint32_t*)&xrdc_config,
   .LCConfig                 = (const uint32_t*)&lc_config,
-  .HseFwHeader_StartAddress = (const uint32_t*)0U,
+  .HseFwHeader_StartAddress = (const uint32_t*)&__HSE_BIN_START,
 };
 #if defined (__ghs__)
 #pragma ghs section rodata =default

@@ -20,19 +20,22 @@
  ****************************************************************************/
 
 __STACK_SIZE = 0x00001000;
-__HEAP_SIZE  = 0x00001000;
+__HEAP_SIZE  = 0x00000000;
 
 /* Linker script to configure memory regions. */
 MEMORY
 {
-  ITCM       (RWX) : ORIGIN = 0x00000000, LENGTH = 0x8000
-  PFLASH      (RX) : ORIGIN = 0x00400000, LENGTH = 0x1f4000
-  PFLASH_BAF  (RX) : ORIGIN = 0x005f4000, LENGTH = 0xC000 /* Secure flash memory. Do not use in applications! */
+  ITCM        (RWX): ORIGIN = 0x00000000, LENGTH = 0x00008000
+  HSE_BINARY  (R)  : ORIGIN = 0x00400000, LENGTH = 0x00080000   /* Leave block 0 for HSE FW binary */
+  PFLASH      (RX) : ORIGIN = 0x00480000, LENGTH = 0x00080000   /* Use only blocks 1,2,3 for install project */
   DFLASH      (RX) : ORIGIN = 0x10000000, LENGTH = 0x20000
   DTCM        (RW) : ORIGIN = 0x20000000, LENGTH = 0x10000
-  SRAM0_STDBY (RW) : ORIGIN = 0x20400000, LENGTH = 0x8000
-  SRAM        (RW) : ORIGIN = 0x20408000, LENGTH = 0x10000
+  SRAM        (RW) : ORIGIN = 0x20400000, LENGTH = 0x10000
 }
+
+TARGET(binary) /* specify the file format of binary file */
+INPUT (..\HSE_FW_S32K312_0_2_40_0\hse_ab_swap\s32k312_hse_fw_1.13.0_2.40.0_pb230730.bin.pink)
+OUTPUT_FORMAT(default) /* restore the out file format */
 
 /* Linker script to place sections and symbol values. Should be used together
  * with other linker script that defines memory regions FLASH and RAM.
@@ -66,6 +69,18 @@ ENTRY(Reset_Handler)
 
 SECTIONS
 {
+	.hse_bin :
+  	{
+  		. = ALIGN (0x4);
+  		__hse_bin_start__ = .;
+  		..\HSE_FW_S32K312_0_2_40_0\hse_ab_swap\s32k312_hse_fw_1.13.0_2.40.0_pb230730.bin.pink (.data)
+  		. = ALIGN (0x4);
+  		__hse_bin_end__ = .;
+  	} > HSE_BINARY
+
+  	__HSE_BIN_START = ORIGIN(HSE_BINARY);
+  	__HSE_BIN_SIZE = __hse_bin_end__ - __hse_bin_start__;
+
   .text :
   {
     KEEP(*(.vectors))
@@ -167,11 +182,6 @@ SECTIONS
     KEEP(*(.boot_header))
   } > DFLASH
 
-  .standby_ram :
-  {
-    *(.standby_ram)
-  } > SRAM0_STDBY
-
   /* Due ECC initialization sequence __data_start__ and __data_end__ should be aligned on 8 bytes */
   .data : AT (__etext)
   {
@@ -247,6 +257,4 @@ SECTIONS
   /* Check if data + heap + stack exceeds RAM limit */
   ASSERT(__StackLimit >= __HeapLimit, "region RAM overflowed with stack")
   CM7_START_ADDRESS = ORIGIN(PFLASH);
-  __STDBYRAM_START = ORIGIN(SRAM0_STDBY);
-  __STDBYRAM_SIZE = LENGTH(SRAM0_STDBY);
 }
