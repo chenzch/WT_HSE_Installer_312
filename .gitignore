@@ -114,3 +114,5 @@ local.properties
 
 Debug_*/
 .vscode/BROWSE.*
+*.gdb
+*.dump

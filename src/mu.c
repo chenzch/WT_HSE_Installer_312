@@ -21,6 +21,7 @@
 #include "mu.h"
 
 extern uint32_t __HSE_BIN_START;
+extern uint32_t __SBAF_BIN_START;
 
 bool MU_GetHseStatus(void) {
     if (IP_MU_0__MUB->FSR & MU_FSR_F24_MASK) {
@@ -32,30 +33,33 @@ bool MU_GetHseStatus(void) {
 
 static hseSrvResponse_t GetAttr(hseAttrId_t attrId, uint32_t attrLen, void *pAttr);
 static hseSrvResponse_t HSE_Send(hseSrvDescriptor_t* pHseSrvDesc);
-static hseSrvDescriptor_t hseSrvDescMu0;
 
 hseSrvResponse_t TrigUpdateHSEFW(void) {
 
-    hseSrvDescriptor_t* pHseSrvDesc = NULL;
+    hseSrvDescriptor_t hseSrvDesc = { HSE_SRV_ID_FIRMWARE_UPDATE };
+    hseSrvDesc.hseSrv.firmwareUpdateReq.accessMode = HSE_ACCESS_MODE_ONE_PASS;
+    hseSrvDesc.hseSrv.firmwareUpdateReq.pInFwFile  = (uint32_t)&__HSE_BIN_START;
 
-    pHseSrvDesc = &hseSrvDescMu0;
-    memset(pHseSrvDesc, 0, sizeof(hseSrvDescriptor_t));
+    return HSE_Send(&hseSrvDesc);
+}
 
-	pHseSrvDesc->srvId = HSE_SRV_ID_FIRMWARE_UPDATE;
-    pHseSrvDesc->hseSrv.firmwareUpdateReq.accessMode = HSE_ACCESS_MODE_ONE_PASS;
-    pHseSrvDesc->hseSrv.firmwareUpdateReq.pInFwFile  = (uint32_t)&__HSE_BIN_START;
+hseSrvResponse_t TrigUpdateSBAF(void) {
 
-    return HSE_Send(pHseSrvDesc);
+    hseSrvDescriptor_t hseSrvDesc = { HSE_SRV_ID_SBAF_UPDATE };
+    hseSrvDesc.hseSrv.firmwareUpdateReq.accessMode = HSE_ACCESS_MODE_ONE_PASS;
+    hseSrvDesc.hseSrv.firmwareUpdateReq.pInFwFile  = (uint32_t)&__SBAF_BIN_START;
+
+    return HSE_Send(&hseSrvDesc);
 }
 
 hseSrvResponse_t HSE_GetVersion(hseAttrFwVersion_t *pHseFwVersion) {
     return GetAttr(HSE_FW_VERSION_ATTR_ID, sizeof(hseAttrFwVersion_t), pHseFwVersion);
 }
 
-hseSrvResponse_t HSE_Send(hseSrvDescriptor_t* pHseSrvDesc) {
+bool HSE_Write(uint32_t Data) {
     uint32_t u32TimeOutCount;
 
-    IP_MU_0__MUB->TR[0] = (uintptr_t)pHseSrvDesc;
+    IP_MU_0__MUB->TR[0] = Data;
 
     u32TimeOutCount = -1UL;
 
@@ -63,12 +67,24 @@ hseSrvResponse_t HSE_Send(hseSrvDescriptor_t* pHseSrvDesc) {
     while((0UL < u32TimeOutCount--) && (0 == (IP_MU_0__MUB->RSR & MU_RSR_RF0_MASK)));
 
     /* Response received if TIMEOUT did not occur */
-    if(u32TimeOutCount > 0UL)
-    {
-        /* Get HSE response */
-        hseSrvResponse_t u32HseMuResponse = IP_MU_0__MUB->RR[0];
-        while (IP_MU_0__MUB->FSR & MU_FSR_F0_MASK);
-        return u32HseMuResponse;
+    if(u32TimeOutCount > 0UL) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+hseSrvResponse_t HSE_Read(void) {
+    /* Get HSE response */
+    hseSrvResponse_t u32HseMuResponse = IP_MU_0__MUB->RR[0];
+    while (IP_MU_0__MUB->FSR & MU_FSR_F0_MASK);
+    return u32HseMuResponse;
+}
+
+hseSrvResponse_t HSE_Send(hseSrvDescriptor_t* pHseSrvDesc) {
+    /* Response received if TIMEOUT did not occur */
+    if(HSE_Write((uint32_t)pHseSrvDesc)) {
+        return HSE_Read();
     }
     else {
         return HSE_SRV_RSP_GENERAL_ERROR;
@@ -76,13 +92,15 @@ hseSrvResponse_t HSE_Send(hseSrvDescriptor_t* pHseSrvDesc) {
 }
 
 hseSrvResponse_t GetAttr(hseAttrId_t attrId, uint32_t attrLen, void *pAttr) {
-    hseSrvDescriptor_t* pHseSrvDesc = &hseSrvDescMu0;
-    memset(pHseSrvDesc, 0, sizeof(hseSrvDescriptor_t));
+    hseSrvDescriptor_t hseSrvDesc = { HSE_SRV_ID_GET_ATTR };
+    hseSrvDesc.hseSrv.getAttrReq.attrId   = attrId;
+    hseSrvDesc.hseSrv.getAttrReq.attrLen  = attrLen;
+    hseSrvDesc.hseSrv.getAttrReq.pAttr    = (HOST_ADDR)pAttr;
 
-    pHseSrvDesc->srvId                      = HSE_SRV_ID_GET_ATTR;
-    pHseSrvDesc->hseSrv.getAttrReq.attrId   = attrId;
-    pHseSrvDesc->hseSrv.getAttrReq.attrLen  = attrLen;
-    pHseSrvDesc->hseSrv.getAttrReq.pAttr    = (HOST_ADDR)pAttr;
+    return HSE_Send(&hseSrvDesc);
+}
 
-    return HSE_Send(pHseSrvDesc);
+hseSrvResponse_t HSE_SwitchBlock(void) {
+    hseSrvDescriptor_t hseSrvDesc = { HSE_SRV_ID_ACTIVATE_PASSIVE_BLOCK };
+    return HSE_Send(&hseSrvDesc);
 }
