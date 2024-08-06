@@ -30,7 +30,8 @@ MEMORY
   PFLASH      (RX) : ORIGIN = 0x00480000, LENGTH = 0x00080000   /* Use only blocks 1,2,3 for install project */
   DFLASH      (RX) : ORIGIN = 0x10000000, LENGTH = 0x20000
   DTCM        (RW) : ORIGIN = 0x20000000, LENGTH = 0x10000
-  SRAM        (RW) : ORIGIN = 0x20400000, LENGTH = 0x10000
+  SRAM        (RW) : ORIGIN = 0x20400000, LENGTH = 0x8000
+  SRAM_STATUS (RW) : ORIGIN = 0x20408000, LENGTH = 0x10
 }
 
 TARGET(binary) /* specify the file format of binary file */
@@ -252,6 +253,9 @@ SECTIONS
     . = ALIGN(8);
     __StackTop = .;
   } > SRAM
+
+  __SRAM_STATUS_START = ORIGIN(SRAM_STATUS);
+
   PROVIDE(__stack = __StackTop);
 
   /* Check if data + heap + stack exceeds RAM limit */
