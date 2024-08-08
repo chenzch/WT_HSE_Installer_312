@@ -90,7 +90,7 @@ const boot_header_t boot_header = {
 const boot_header_t __attribute__((section (".boot_header"))) boot_header = {
 #endif
   .Header = 0x5AA55AA5,
-  .BootConfig = 1, /* Booting core is always core CM7 */
+  .BootConfig = 0x01, /* Booting core is always core CM7 */ // Described in HSE Reference Manual Page 234
   .CM7_0_StartAddress = (const uint32_t*)&CM7_START_ADDRESS,
   .XRDCConfig_StartAddress  = (const uint32_t*)&xrdc_config,
   .LCConfig                 = (const uint32_t*)&lc_config,

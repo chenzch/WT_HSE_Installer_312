@@ -20,23 +20,20 @@
  ****************************************************************************/
 
 __STACK_SIZE = 0x00001000;
-__HEAP_SIZE  = 0x00000000;
 
 /* Linker script to configure memory regions. */
 MEMORY
 {
-  ITCM        (RWX): ORIGIN = 0x00000000, LENGTH = 0x00008000
   HSE_BINARY  (R)  : ORIGIN = 0x00400000, LENGTH = 0x00040000   /* Leave block 0 for HSE FW binary */
-  SBAF_BINARY (R)  : ORIGIN = 0x00440000, LENGTH = 0x00040000   /* Leave block 0 for SBAF FW binary */
-  PFLASH      (RX) : ORIGIN = 0x00480000, LENGTH = 0x00080000   /* Use only blocks 1,2,3 for install project */
-  DFLASH      (RX) : ORIGIN = 0x10000000, LENGTH = 0x20000
-  DTCM        (RW) : ORIGIN = 0x20000000, LENGTH = 0x10000
-  SRAM        (RW) : ORIGIN = 0x20400000, LENGTH = 0x8000
-  SRAM_STATUS (RW) : ORIGIN = 0x20408000, LENGTH = 0x10
+  HSE_BINARYB (R)  : ORIGIN = 0x00500000, LENGTH = 0x00040000
+  DFLASH      (RX) : ORIGIN = 0x10000000, LENGTH = 0x2000
+  SRAM        (RW) : ORIGIN = 0x20400000, LENGTH = 0x2000
+  SRAM_STATUS (RW) : ORIGIN = 0x20402000, LENGTH = 0x10
 }
 
 TARGET(binary) /* specify the file format of binary file */
 INPUT (..\HSE_FW_S32K312_0_2_40_0\hse_ab_swap\s32k312_hse_fw_1.13.0_2.40.0_pb230730.bin.pink)
+INPUT (.\..\HSE_FW_S32K312_0_2_40_0\hse_ab_swap\s32k312_hse_fw_1.13.0_2.40.0_pb230730.bin.pink)
 OUTPUT_FORMAT(default) /* restore the out file format */
 
 /* Linker script to place sections and symbol values. Should be used together
@@ -62,7 +59,6 @@ OUTPUT_FORMAT(default) /* restore the out file format */
  *   __bss_end__
  *   __end__
  *   end
- *   __HeapLimit
  *   __StackLimit
  *   __StackTop
  *   __stack
@@ -80,17 +76,22 @@ SECTIONS
 
   	__HSE_BIN_START = ORIGIN(HSE_BINARY);
 
-    .sbaf_bin :
-    {
-        . = ALIGN (0x4);
-        . = . + 0x10; /* Dummy SBAF */
-        . = ALIGN (0x4);
-    } > SBAF_BINARY
-  	
-  	__SBAF_BIN_START = ORIGIN(SBAF_BINARY);
+  .hse_binb :
+  	{
+  		. = ALIGN (0x4);
+  		.\..\HSE_FW_S32K312_0_2_40_0\hse_ab_swap\s32k312_hse_fw_1.13.0_2.40.0_pb230730.bin.pink (.data)
+  		. = ALIGN (0x4);
+  	} > HSE_BINARYB
+
+  .boot_header :
+  {
+    KEEP(*(.boot_header))
+  } > DFLASH
 
   .text :
   {
+    . = ALIGN (0x100);
+    CM7_START_ADDRESS = .;
     KEEP(*(.vectors))
     *(.text*)
 
@@ -113,18 +114,18 @@ SECTIONS
 
     *(.rodata*)
     KEEP(*(.eh_frame*))
-  } > PFLASH
+  } > DFLASH
 
   .ARM.extab :
   {
     *(.ARM.extab* .gnu.linkonce.armextab.*)
-  } > PFLASH
+  } > DFLASH
 
   __exidx_start = .;
   .ARM.exidx :
   {
     *(.ARM.exidx* .gnu.linkonce.armexidx.*)
-  } > PFLASH
+  } > DFLASH
   __exidx_end = .;
 
   .ecc.table :
@@ -138,20 +139,11 @@ SECTIONS
     QUAD (__bss_start__)
     QUAD ((__bss_end__ - __bss_start__) / 8)
 
-    QUAD (__HeapTop)
-    QUAD ((__HeapLimit - __HeapTop) / 8)
-
     QUAD (__StackLimit)
     QUAD ((__StackTop - __StackLimit) / 8)
 
-    QUAD (ORIGIN(ITCM))
-    QUAD (LENGTH(ITCM) / 8)
-
-    QUAD (ORIGIN(DTCM))
-    QUAD (LENGTH(DTCM) / 8)
-
     __ecc_table_end__ = .;
-  } > PFLASH
+  } > DFLASH
 
   .copy.table :
   {
@@ -169,7 +161,7 @@ SECTIONS
       LONG ((__data2_end__ - __data2_start__) / 4)
     */
     __copy_table_end__ = .;
-  } > PFLASH
+  } > DFLASH
 
   .zero.table :
   {
@@ -181,14 +173,17 @@ SECTIONS
       LONG ((__bss2_end__ - __bss2_start__) / 4)
     */
     __zero_table_end__ = .;
-  } > PFLASH
+  } > DFLASH
+
+  .sbaf_bin :
+  {
+      . = ALIGN (0x4);
+      __SBAF_BIN_START = .;
+      . = . + 0x10; /* Dummy SBAF */
+      . = ALIGN (0x4);
+  } > DFLASH
 
   __etext = ALIGN(8);
-
-  .boot_header :
-  {
-    KEEP(*(.boot_header))
-  } > DFLASH
 
   /* Due ECC initialization sequence __data_start__ and __data_end__ should be aligned on 8 bytes */
   .data : AT (__etext)
@@ -238,18 +233,6 @@ SECTIONS
     __bss_end__ = .;
   } > SRAM
 
-  /* Due ECC initialization sequence __HeapTop and __HeapLimit should be aligned on 8 bytes */
-  .heap (COPY):
-  {
-    . = ALIGN(8);
-    __HeapTop = .;
-    __end__ = .;
-    _end = .;
-    PROVIDE(end = .);
-    . = ALIGN(8);
-    __HeapLimit = .;
-  } > SRAM
-
   /* Due ECC initialization sequence __StackLimit and __StackTop should be aligned on 8 bytes */
   .stack (ORIGIN(SRAM) + LENGTH(SRAM) - __STACK_SIZE) (COPY) :
   {
@@ -263,8 +246,4 @@ SECTIONS
   __SRAM_STATUS_START = ORIGIN(SRAM_STATUS);
 
   PROVIDE(__stack = __StackTop);
-
-  /* Check if data + heap + stack exceeds RAM limit */
-  ASSERT(__StackLimit >= __HeapLimit, "region RAM overflowed with stack")
-  CM7_START_ADDRESS = ORIGIN(PFLASH);
 }

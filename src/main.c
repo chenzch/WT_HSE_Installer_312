@@ -136,9 +136,10 @@ int main(void)
                         HSE_Write(0xF0F00F0F); // Install Firmware in Active Block
                         break;
                     case 0xDABABADA: // Block switching success
+                        Status_Data.firstBlock = false;
                     case 0xDACACADA: // Full Mem HSE FW install success
                         while (HSE_GPR_3 & HSE_GPR_3_MU_READY);
-                        Status_Data.status = RAM_STATUS_UNKNWON;
+                        Status_Data.status = RAM_STATUS_UTEST_OK;
                         FunctionalReset();
                         break;
                     case 0xDADABABA: // Get HSE FW base address
